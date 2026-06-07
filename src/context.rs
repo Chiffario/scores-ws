@@ -122,12 +122,22 @@ impl Context {
             let pin = clients.pin();
             let mut sent = 0;
 
+            // Send start-batch messages to every client
+            for tx in pin.values() {
+                let _: Result<_, _> = tx.send(Message::Text("start-batch".into()));
+            }
+
             for score in range {
                 sent += 1;
 
                 for tx in pin.values() {
                     let _: Result<_, _> = tx.send(score.as_message());
                 }
+            }
+
+            // Send end-batch messages to every client
+            for tx in pin.values() {
+                let _: Result<_, _> = tx.send(Message::Text("end-batch".into()));
             }
 
             info!("Sent {sent} scores to {} client(s)", clients.len());
@@ -222,10 +232,14 @@ impl Context {
         let range = Score::only_id(resume_id.map_or(0, |id| id + 1))..;
         let mut sent = 0;
 
+        tx.send(Message::Text("start-batch".into())).unwrap();
+
         for score in self.history.lock().unwrap().range(range) {
             sent += 1;
             let _: Result<_, _> = tx.send(score.as_message());
         }
+
+        tx.send(Message::Text("end-batch".into())).unwrap();
 
         info!(%addr, "Sent {sent} scores from the history");
     }
